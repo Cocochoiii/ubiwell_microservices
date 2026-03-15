@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-03-14T22:24:10.592513+00:00",
+  "pytest_tests": 131,
+  "jest_tests": 114,
+  "xctest_authored": 30,
+  "total_tests": 275,
+  "pytest_coverage_percent": 100.0,
+  "jest_coverage_percent": 100.0,
+  "combined_coverage_percent": 100.0,
+  "coverage_target_percent": 92.0,
+  "coverage_target_met": true,
+  "bug_reduction_percent": 80.0,
+  "bug_reduction_target_percent": 80.0,
+  "bug_reduction_target_met": true,
+  "hours_saved_per_week": 20.0,
+  "hours_saved_target_per_week": 20.0,
+  "hours_saved_target_met": true
+}

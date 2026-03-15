@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-03-14T22:51:25.410601+00:00",
+  "kafka_bootstrap_servers": "redpanda:9092",
+  "topic": "patient-monitoring-raw",
+  "total_events": 200000,
+  "elapsed_seconds": 5.366,
+  "achieved_events_per_second": 37273.58,
+  "target_events_per_second": 50000,
+  "target_met": false,
+  "notes": "Throughput is environment-sensitive. Use higher partition count and larger compute to reach 50K EPS sustainably in production."
+}

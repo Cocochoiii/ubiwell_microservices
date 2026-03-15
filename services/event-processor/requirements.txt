@@ -1,0 +1,4 @@
+kafka-python==2.0.2
+six==1.17.0
+pymongo==4.11.1
+httpx==0.28.1

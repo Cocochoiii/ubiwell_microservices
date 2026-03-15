@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package studyworkflow.v1;
+
+service ParticipantService {
+  rpc GetParticipant (GetParticipantRequest) returns (ParticipantResponse);
+  rpc GetParticipantCountByStudy (GetParticipantCountByStudyRequest) returns (ParticipantCountByStudyResponse);
+}
+
+service SurveyService {
+  rpc GetSurveyResponseCount (GetSurveyResponseCountRequest) returns (SurveyResponseCountResponse);
+}
+
+message GetParticipantRequest {
+  string tenant_id = 1;
+  string participant_id = 2;
+}
+
+message ParticipantResponse {
+  string tenant_id = 1;
+  string participant_id = 2;
+  string study_id = 3;
+  string status = 4;
+}
+
+message GetSurveyResponseCountRequest {
+  string tenant_id = 1;
+  string study_id = 2;
+}
+
+message GetParticipantCountByStudyRequest {
+  string tenant_id = 1;
+  string study_id = 2;
+}
+
+message ParticipantCountByStudyResponse {
+  string tenant_id = 1;
+  string study_id = 2;
+  int64 count = 3;
+}
+
+message SurveyResponseCountResponse {
+  string tenant_id = 1;
+  string study_id = 2;
+  int64 count = 3;
+}

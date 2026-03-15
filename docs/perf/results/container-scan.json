@@ -1,0 +1,81 @@
+{
+  "generated_at": "2026-03-14T22:47:05.674159+00:00",
+  "dockerfile_count": 10,
+  "static_policy_issues": 0,
+  "trivy_status": "tool_missing",
+  "trivy_high_critical_findings": 0,
+  "dockerfiles": [
+    {
+      "dockerfile": "apps/web-dashboard/Dockerfile",
+      "base_images": [
+        "node:20-alpine",
+        "nginx:1.27-alpine"
+      ],
+      "issues": []
+    },
+    {
+      "dockerfile": "services/analytics-service/Dockerfile",
+      "base_images": [
+        "python:3.11-slim"
+      ],
+      "issues": []
+    },
+    {
+      "dockerfile": "services/api-gateway/Dockerfile",
+      "base_images": [
+        "python:3.11-slim"
+      ],
+      "issues": []
+    },
+    {
+      "dockerfile": "services/collector-service/Dockerfile",
+      "base_images": [
+        "python:3.11-slim"
+      ],
+      "issues": []
+    },
+    {
+      "dockerfile": "services/event-processor/Dockerfile",
+      "base_images": [
+        "python:3.11-slim"
+      ],
+      "issues": []
+    },
+    {
+      "dockerfile": "services/ingestion-service/Dockerfile",
+      "base_images": [
+        "python:3.11-slim"
+      ],
+      "issues": []
+    },
+    {
+      "dockerfile": "services/participant-service/Dockerfile",
+      "base_images": [
+        "python:3.11-slim"
+      ],
+      "issues": []
+    },
+    {
+      "dockerfile": "services/realtime-service/Dockerfile",
+      "base_images": [
+        "python:3.11-slim"
+      ],
+      "issues": []
+    },
+    {
+      "dockerfile": "services/report-service/Dockerfile",
+      "base_images": [
+        "python:3.11-slim"
+      ],
+      "issues": []
+    },
+    {
+      "dockerfile": "services/survey-service/Dockerfile",
+      "base_images": [
+        "python:3.11-slim"
+      ],
+      "issues": []
+    }
+  ],
+  "trivy_results": []
+}

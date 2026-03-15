@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-03-15T01:29:00.602892+00:00",
+  "sample_count": 60000,
+  "positive_rate": 0.0091,
+  "test_roc_auc": 1.0,
+  "test_pr_auc": 0.9998,
+  "test_precision": 1.0,
+  "test_recall": 0.9725,
+  "test_f1": 0.986,
+  "test_brier": 0.000273,
+  "test_ece": 0.000208,
+  "cv": {
+    "cv_roc_auc": 1.0,
+    "cv_pr_auc": 0.9996,
+    "cv_f1": 0.9926
+  },
+  "threshold": 0.5
+}

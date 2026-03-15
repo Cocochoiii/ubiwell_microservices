@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-03-14T23:01:24.012910+00:00",
+  "runtime_model": "logistic_regression_optimized",
+  "samples": 10000,
+  "throughput_inferences_per_second": 21208.2,
+  "latency_ms": {
+    "p50": 0.0412,
+    "p95": 0.0777,
+    "p99": 0.1627
+  },
+  "targets": {
+    "p95_under_ms": 5.0,
+    "throughput_over_ips": 3000.0
+  },
+  "target_met": true
+}

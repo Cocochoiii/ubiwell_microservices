@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: ubiwell
+spec:
+  selector:
+    app: api-gateway
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: participant-service
+  namespace: ubiwell
+spec:
+  selector:
+    app: participant-service
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: survey-service
+  namespace: ubiwell
+spec:
+  selector:
+    app: survey-service
+  ports:
+    - name: http
+      port: 8002
+      targetPort: 8002
+    - name: grpc
+      port: 50052
+      targetPort: 50052
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingestion-service
+  namespace: ubiwell
+spec:
+  selector:
+    app: ingestion-service
+  ports:
+    - port: 8003
+      targetPort: 8003
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  namespace: ubiwell
+spec:
+  selector:
+    app: analytics-service
+  ports:
+    - port: 8004
+      targetPort: 8004

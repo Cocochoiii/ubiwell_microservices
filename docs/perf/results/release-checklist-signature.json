@@ -1,0 +1,8 @@
+{
+  "generated_at": "2026-03-14T22:47:06.070272+00:00",
+  "signer": "local-dev",
+  "method": "sha256",
+  "checklist_sha256": "6a9b44981a39e09c3f82697545564249183099bcb844ecb9e2c18e1450c032e1",
+  "signature": "6a9b44981a39e09c3f82697545564249183099bcb844ecb9e2c18e1450c032e1",
+  "checklist_path": "docs/perf/RELEASE_CHECKLIST.md"
+}

@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-03-14T22:17:15.219450+00:00",
+  "total_daily_sensor_readings": 10000,
+  "processed_successfully": 9975,
+  "failed": 25,
+  "reliability": 0.9975,
+  "reliability_target": 0.997,
+  "target_met": true,
+  "baseline_cloud_cost_usd": 12000.0,
+  "edge_offload_rate": 0.25,
+  "estimated_cloud_cost_after_usd": 9000.0,
+  "estimated_monthly_savings_usd": 3000.0
+}

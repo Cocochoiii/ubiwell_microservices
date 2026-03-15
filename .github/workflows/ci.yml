@@ -1,0 +1,122 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  python-sanity:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - participant-service
+          - survey-service
+          - ingestion-service
+          - analytics-service
+          - event-processor
+          - report-service
+          - realtime-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r "services/${{ matrix.service }}/requirements.txt"
+
+      - name: Compile service code
+        run: |
+          python -m compileall "services/${{ matrix.service }}/app"
+          python -m compileall shared/gen
+          python -m compileall scripts
+
+  compose-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate compose file
+        run: docker compose config -q
+
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio pytest-cov
+          pip install -r services/api-gateway/requirements.txt
+          pip install -r services/realtime-service/requirements.txt
+          pip install -r services/report-service/requirements.txt
+          pip install -r services/collector-service/requirements.txt
+
+      - name: Run backend tests
+        run: |
+          pytest -q tests \
+            --cov=shared/utils \
+            --cov-report=term \
+            --cov-fail-under=92
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install and build dashboard
+        run: |
+          cd apps/web-dashboard
+          npm install
+          npm run test:coverage
+          npm run build
+          npm run check-bundle
+
+  security-compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dashboard dependencies for npm audit
+        run: |
+          cd apps/web-dashboard
+          npm install
+
+      - name: Run security and release advisory gate
+        run: |
+          make security-compliance
+          make release-gate

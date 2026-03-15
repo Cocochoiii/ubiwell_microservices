@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "description": "Metadata-driven dashboard templates for role-based rendering",
+  "base_templates": [
+    {
+      "id": "telemetry-overview",
+      "title": "Telemetry Overview",
+      "chartType": "line",
+      "roles": ["admin", "researcher", "clinician"],
+      "dataSource": "reports.telemetry"
+    },
+    {
+      "id": "alerts-severity",
+      "title": "Alerts by Severity",
+      "chartType": "bar",
+      "roles": ["admin", "clinician"],
+      "dataSource": "reports.alerts"
+    },
+    {
+      "id": "survey-completion",
+      "title": "Survey Completion",
+      "chartType": "pie",
+      "roles": ["admin", "researcher"],
+      "dataSource": "reports.surveys"
+    }
+  ],
+  "generated_count_hint": 120
+}

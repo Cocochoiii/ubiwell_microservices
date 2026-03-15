@@ -1,0 +1,12 @@
+{
+  "tenant_id": "tenant-a",
+  "study_id": "study-a",
+  "rounds": 5,
+  "legacy_workload_multiplier": 30,
+  "optimized_workload_multiplier": 4,
+  "naive_avg_seconds": 0.24146758359993328,
+  "optimized_avg_seconds": 0.005389841800024442,
+  "improvement_percent": 97.76788183338331,
+  "target_met_85_percent": true,
+  "created_at_epoch": 1773524096
+}

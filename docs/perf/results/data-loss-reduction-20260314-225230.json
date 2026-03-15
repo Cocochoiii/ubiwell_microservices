@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-03-14T22:52:30.525124+00:00",
+  "total_events": 250000,
+  "baseline": {
+    "delivered_events": 204808,
+    "loss_rate": 0.1808
+  },
+  "hardened": {
+    "delivered_events": 249999,
+    "loss_rate": 0.0
+  },
+  "loss_reduction_percentage_points": 18.08,
+  "target_met_15_percent": true
+}

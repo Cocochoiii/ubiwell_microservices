@@ -1,0 +1,245 @@
+services:
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: api-gateway
+    env_file: .env
+    environment:
+      PYTHONPATH: /app:/app/shared/gen
+    ports:
+      - "8000:8000"
+    depends_on:
+      - participant-service
+      - survey-service
+      - ingestion-service
+      - analytics-service
+      - report-service
+      - realtime-service
+      - collector-service
+      - redis
+      - mongo
+
+  participant-service:
+    build:
+      context: .
+      dockerfile: services/participant-service/Dockerfile
+    container_name: participant-service
+    env_file: .env
+    environment:
+      PYTHONPATH: /app:/app/shared/gen
+    ports:
+      - "8001:8001"
+      - "50051:50051"
+    depends_on:
+      - postgres
+
+  survey-service:
+    build:
+      context: .
+      dockerfile: services/survey-service/Dockerfile
+    container_name: survey-service
+    env_file: .env
+    environment:
+      PYTHONPATH: /app:/app/shared/gen
+    ports:
+      - "8002:8002"
+      - "50052:50052"
+    depends_on:
+      - mongo
+
+  ingestion-service:
+    build:
+      context: .
+      dockerfile: services/ingestion-service/Dockerfile
+    container_name: ingestion-service
+    env_file: .env
+    environment:
+      PYTHONPATH: /app:/app/shared/gen
+    ports:
+      - "8003:8003"
+    depends_on:
+      - redpanda
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: services/analytics-service/Dockerfile
+    container_name: analytics-service
+    env_file: .env
+    environment:
+      PYTHONPATH: /app:/app/shared/gen
+    ports:
+      - "8004:8004"
+    depends_on:
+      - participant-service
+      - survey-service
+      - mongo
+
+  report-service:
+    build:
+      context: .
+      dockerfile: services/report-service/Dockerfile
+    container_name: report-service
+    env_file: .env
+    ports:
+      - "8005:8005"
+    depends_on:
+      - mongo
+      - postgres
+      - redis
+
+  realtime-service:
+    build:
+      context: .
+      dockerfile: services/realtime-service/Dockerfile
+    container_name: realtime-service
+    env_file: .env
+    ports:
+      - "8006:8006"
+    depends_on:
+      - mongo
+
+  collector-service:
+    build:
+      context: .
+      dockerfile: services/collector-service/Dockerfile
+    container_name: collector-service
+    env_file: .env
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium:4444/wd/hub
+    ports:
+      - "8007:8007"
+    depends_on:
+      - redpanda
+      - mongo
+
+  selenium:
+    image: selenium/standalone-chromium:4.27.0
+    container_name: ubiwell-selenium
+    shm_size: 2gb
+    profiles: ["collector"]
+    ports:
+      - "4444:4444"
+
+  web-dashboard:
+    build:
+      context: .
+      dockerfile: apps/web-dashboard/Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+        VITE_REALTIME_BASE_URL: ws://localhost:8006
+    container_name: web-dashboard
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+
+  event-processor:
+    build:
+      context: .
+      dockerfile: services/event-processor/Dockerfile
+    container_name: event-processor
+    env_file: .env
+    depends_on:
+      - redpanda
+      - mongo
+      - participant-service
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ubiwell-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  mongo:
+    image: mongo:7
+    container_name: ubiwell-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    container_name: ubiwell-redpanda
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "1G"
+      - --reserve-memory
+      - "0M"
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+
+  redis:
+    image: redis:7-alpine
+    container_name: ubiwell-redis
+    ports:
+      - "6379:6379"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: ubiwell-otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./ops/otel/otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4318:4318"
+      - "4317:4317"
+    depends_on:
+      - jaeger
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    container_name: ubiwell-jaeger
+    ports:
+      - "16686:16686"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: ubiwell-prometheus
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api-gateway
+      - participant-service
+      - survey-service
+      - ingestion-service
+      - analytics-service
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: ubiwell-grafana
+    volumes:
+      - ./ops/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./ops/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  mongo_data:

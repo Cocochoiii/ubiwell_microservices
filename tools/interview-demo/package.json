@@ -1,0 +1,13 @@
+{
+  "name": "ubiwell-interview-demo-tools",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "capture": "node capture_screenshots.mjs",
+    "e2e": "node e2e_report_realtime.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.53.1"
+  }
+}

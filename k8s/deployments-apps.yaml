@@ -1,0 +1,155 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: ubiwell
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: ubiwell/api-gateway:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: ubiwell-config
+            - secretRef:
+                name: ubiwell-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: participant-service
+  namespace: ubiwell
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: participant-service
+  template:
+    metadata:
+      labels:
+        app: participant-service
+    spec:
+      containers:
+        - name: participant-service
+          image: ubiwell/participant-service:latest
+          ports:
+            - containerPort: 8001
+            - containerPort: 50051
+          envFrom:
+            - configMapRef:
+                name: ubiwell-config
+            - secretRef:
+                name: ubiwell-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: survey-service
+  namespace: ubiwell
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: survey-service
+  template:
+    metadata:
+      labels:
+        app: survey-service
+    spec:
+      containers:
+        - name: survey-service
+          image: ubiwell/survey-service:latest
+          ports:
+            - containerPort: 8002
+            - containerPort: 50052
+          envFrom:
+            - configMapRef:
+                name: ubiwell-config
+            - secretRef:
+                name: ubiwell-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestion-service
+  namespace: ubiwell
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ingestion-service
+  template:
+    metadata:
+      labels:
+        app: ingestion-service
+    spec:
+      containers:
+        - name: ingestion-service
+          image: ubiwell/ingestion-service:latest
+          ports:
+            - containerPort: 8003
+          envFrom:
+            - configMapRef:
+                name: ubiwell-config
+            - secretRef:
+                name: ubiwell-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: ubiwell
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+    spec:
+      containers:
+        - name: analytics-service
+          image: ubiwell/analytics-service:latest
+          ports:
+            - containerPort: 8004
+          envFrom:
+            - configMapRef:
+                name: ubiwell-config
+            - secretRef:
+                name: ubiwell-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-processor
+  namespace: ubiwell
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: event-processor
+  template:
+    metadata:
+      labels:
+        app: event-processor
+    spec:
+      containers:
+        - name: event-processor
+          image: ubiwell/event-processor:latest
+          envFrom:
+            - configMapRef:
+                name: ubiwell-config
+            - secretRef:
+                name: ubiwell-secret

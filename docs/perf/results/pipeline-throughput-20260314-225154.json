@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-03-14T22:51:54.353471+00:00",
+  "kafka_bootstrap_servers": "redpanda:9092",
+  "topic": "patient-monitoring-raw",
+  "total_events": 200000,
+  "elapsed_seconds": 5.109,
+  "average_events_per_second": 39146.84,
+  "peak_events_per_second": 44382.73,
+  "target_events_per_second": 50000,
+  "target_met": false,
+  "notes": "Throughput is environment-sensitive. This benchmark records both average and peak producer throughput; use larger compute/partitioning for sustained 50K EPS."
+}

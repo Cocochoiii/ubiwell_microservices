@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ubiwell-config
+  namespace: ubiwell
+data:
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: ubiwell_study
+  MONGO_HOST: mongo
+  MONGO_PORT: "27017"
+  MONGO_DB: ubiwell_study
+  KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  KAFKA_EVENTS_TOPIC: study-events
+  KAFKA_DLQ_TOPIC: study-events-dlq
+  KAFKA_IMPORTS_TOPIC: study-imports
+  REDIS_URL: redis://redis:6379/0
+  PARTICIPANT_SERVICE_URL: http://participant-service:8001
+  SURVEY_SERVICE_URL: http://survey-service:8002
+  INGESTION_SERVICE_URL: http://ingestion-service:8003
+  ANALYTICS_SERVICE_URL: http://analytics-service:8004
+  PARTICIPANT_GRPC_HOST: participant-service
+  PARTICIPANT_GRPC_PORT: "50051"
+  SURVEY_GRPC_HOST: survey-service
+  SURVEY_GRPC_PORT: "50052"
+  EVENT_MAX_RETRIES: "3"
+  EVENT_RETRY_BACKOFF_SECONDS: "0.5"
+  IDEMPOTENCY_WINDOW_SECONDS: "600"
+  TENANT_RATE_LIMIT_PER_MINUTE: "1200"
+  TOKEN_EXPIRES_MINUTES: "240"
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318

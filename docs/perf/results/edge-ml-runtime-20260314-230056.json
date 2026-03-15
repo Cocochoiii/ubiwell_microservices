@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-03-14T23:00:56.318001+00:00",
+  "samples": 10000,
+  "throughput_inferences_per_second": 54.84,
+  "latency_ms": {
+    "p50": 14.3424,
+    "p95": 31.7292,
+    "p99": 74.7139
+  },
+  "targets": {
+    "p95_under_ms": 5.0,
+    "throughput_over_ips": 3000.0
+  },
+  "target_met": false
+}
