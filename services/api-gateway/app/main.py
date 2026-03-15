@@ -1,4 +1,6 @@
+import asyncio
 import json
+import logging
 import os
 import time
 from datetime import datetime, timedelta, timezone
@@ -20,6 +22,7 @@ from pydantic import BaseModel, Field
 from pymongo import MongoClient
 
 app = FastAPI(title="API Gateway", version="0.4.0")
+logger = logging.getLogger(__name__)
 
 PARTICIPANT_SERVICE_URL = os.getenv("PARTICIPANT_SERVICE_URL", "http://participant-service:8001")
 SURVEY_SERVICE_URL = os.getenv("SURVEY_SERVICE_URL", "http://survey-service:8002")
@@ -28,7 +31,7 @@ ANALYTICS_SERVICE_URL = os.getenv("ANALYTICS_SERVICE_URL", "http://analytics-ser
 REPORT_SERVICE_URL = os.getenv("REPORT_SERVICE_URL", "http://report-service:8005")
 REALTIME_SERVICE_URL = os.getenv("REALTIME_SERVICE_URL", "http://realtime-service:8006")
 COLLECTOR_SERVICE_URL = os.getenv("COLLECTOR_SERVICE_URL", "http://collector-service:8007")
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-me-to-32-plus-bytes")
+JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 TOKEN_EXPIRES_MINUTES = int(os.getenv("TOKEN_EXPIRES_MINUTES", "240"))
 TOKEN_EXPIRES_MINUTES_PROD = int(os.getenv("TOKEN_EXPIRES_MINUTES_PROD", "30"))
@@ -39,25 +42,34 @@ MONGO_HOST = os.getenv("MONGO_HOST", "mongo")
 MONGO_PORT = int(os.getenv("MONGO_PORT", "27017"))
 MONGO_DB = os.getenv("MONGO_DB", "ubiwell_study")
 
-USERS_JSON = os.getenv(
-    "AUTH_USERS_JSON",
-    '[{"username":"researcher","password":"researcher123","role":"researcher","tenant_id":"tenant-a"},'
-    '{"username":"clinician","password":"clinician123","role":"clinician","tenant_id":"tenant-a"},'
-    '{"username":"admin","password":"admin123","role":"admin","tenant_id":"tenant-admin"}]',
-)
+USERS_JSON = os.getenv("AUTH_USERS_JSON")
+
+
+def validate_security_config() -> None:
+    if not JWT_SECRET:
+        raise RuntimeError("JWT_SECRET must be set")
+    if len(JWT_SECRET) < 32:
+        raise RuntimeError("JWT_SECRET must be at least 32 characters")
+    if not USERS_JSON:
+        raise RuntimeError("AUTH_USERS_JSON must be set")
+
+
 def normalize_users(users_json: str) -> dict[str, dict[str, Any]]:
-    users = {}
+    users: dict[str, dict[str, Any]] = {}
     for item in json.loads(users_json):
         record = dict(item)
         if "password_hash" not in record:
             raw = record.pop("password", None)
             if raw:
                 record["password_hash"] = bcrypt.hashpw(raw.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        if "password_hash" not in record:
+            raise ValueError(f"user '{record.get('username', 'unknown')}' is missing password or password_hash")
         users[record["username"]] = record
     return users
 
 
-USERS = normalize_users(USERS_JSON)
+validate_security_config()
+USERS = normalize_users(USERS_JSON or "")
 
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 mongo_client = MongoClient(host=MONGO_HOST, port=MONGO_PORT)
@@ -186,18 +198,20 @@ def require_role(claims: dict[str, Any], allowed: set[str]) -> None:
 
 
 async def write_audit_log(request: Request, claims: dict[str, Any], action: str, status: int) -> None:
-    audit_collection.insert_one(
-        {
-            "tenant_id": claims.get("tenant_id"),
-            "username": claims.get("sub"),
-            "role": claims.get("role"),
-            "action": action,
-            "path": request.url.path,
-            "method": request.method,
-            "status": status,
-            "ts": datetime.now(timezone.utc),
-        }
-    )
+    doc = {
+        "tenant_id": claims.get("tenant_id"),
+        "username": claims.get("sub"),
+        "role": claims.get("role"),
+        "action": action,
+        "path": request.url.path,
+        "method": request.method,
+        "status": status,
+        "ts": datetime.now(timezone.utc),
+    }
+    try:
+        await asyncio.to_thread(audit_collection.insert_one, doc)
+    except Exception as exc:
+        logger.warning("Failed to write audit log for action %s: %s", action, exc)
 
 
 async def proxy_get(url: str, tenant_id: str) -> Any:

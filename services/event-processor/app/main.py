@@ -1,9 +1,11 @@
 import json
+import logging
 import os
 import time
 
 import httpx
 from kafka import KafkaConsumer, KafkaProducer
+from kafka.errors import KafkaError
 from pymongo import MongoClient
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "redpanda:9092")
@@ -18,6 +20,7 @@ MONGO_PORT = int(os.getenv("MONGO_PORT", "27017"))
 MONGO_DB = os.getenv("MONGO_DB", "ubiwell_study")
 PARTICIPANT_SERVICE_URL = os.getenv("PARTICIPANT_SERVICE_URL", "http://participant-service:8001")
 ALERT_WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL", "")
+logger = logging.getLogger(__name__)
 
 
 def get_consumer(topic: str, group_id: str) -> KafkaConsumer:
@@ -96,8 +99,8 @@ def push_alert_webhook(alert: dict) -> None:
         return
     try:
         httpx.post(ALERT_WEBHOOK_URL, json=alert, timeout=3.0)
-    except Exception:
-        pass
+    except httpx.HTTPError as exc:
+        logger.warning("Alert webhook failed: %s", exc)
 
 
 def process_event(db, event: dict) -> None:
@@ -283,7 +286,8 @@ def main() -> None:
                             dlq_producer.send(KAFKA_DLQ_TOPIC, dlq_payload)
                             dlq_producer.flush(timeout=1)
                         pipeline_consumer.commit()
-        except Exception:
+        except (KafkaError, OSError, RuntimeError, ValueError) as exc:
+            logger.warning("Event processor loop restarting after error: %s", exc)
             time.sleep(3)
 
 

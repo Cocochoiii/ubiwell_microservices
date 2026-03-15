@@ -37,7 +37,7 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "ubiwell")
 mongo_client = MongoClient(host=MONGO_HOST, port=MONGO_PORT)
 db = mongo_client[MONGO_DB]
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
-TEMPLATES_PATH = Path(__file__).resolve().parents[1] / "shared" / "contracts" / "dashboard_templates.json"
+TEMPLATES_PATH = Path(__file__).resolve().parent / "shared" / "contracts" / "dashboard_templates.json"
 L1_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 
 
@@ -74,7 +74,7 @@ def pg_participants_count(tenant_id: str, study_id: str) -> int:
         with conn.cursor() as cur:
             try:
                 cur.execute("SELECT COUNT(*) FROM participants WHERE tenant_id = %s AND study_id = %s", (tenant_id, study_id))
-            except Exception:
+            except psycopg2.Error:
                 # Backward compatibility if tenant_id column doesn't exist in older local volumes.
                 conn.rollback()
                 cur.execute("SELECT COUNT(*) FROM participants WHERE study_id = %s", (study_id,))

@@ -1,6 +1,8 @@
 import json
+import logging
 import os
 import threading
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -19,6 +21,7 @@ from pydantic import BaseModel, Field
 
 app = FastAPI(title="Ingestion Service", version="0.4.0")
 Instrumentator().instrument(app).expose(app)
+logger = logging.getLogger(__name__)
 
 # In production this is a queue/broker sink (Kafka/RabbitMQ).
 INGESTION_BUFFER: list[dict[str, Any]] = []
@@ -30,10 +33,14 @@ KAFKA_PIPELINE_TOPIC = os.getenv("KAFKA_PIPELINE_TOPIC", "patient-monitoring-raw
 KAFKA_PIPELINE_DLQ_TOPIC = os.getenv("KAFKA_PIPELINE_DLQ_TOPIC", "patient-monitoring-dlq")
 KAFKA_PIPELINE_PARTITIONS = int(os.getenv("KAFKA_PIPELINE_PARTITIONS", "8"))
 IDEMPOTENCY_WINDOW_SECONDS = int(os.getenv("IDEMPOTENCY_WINDOW_SECONDS", "600"))
+INGESTION_BUFFER_MAX_SIZE = int(os.getenv("INGESTION_BUFFER_MAX_SIZE", "10000"))
+BUFFER_RETRY_INTERVAL_SECONDS = float(os.getenv("BUFFER_RETRY_INTERVAL_SECONDS", "2.0"))
 
 PRODUCER = None
 SEEN_EVENT_IDS: dict[str, float] = {}
 SEEN_EVENT_IDS_LOCK = threading.Lock()
+BUFFER_LOCK = threading.Lock()
+BUFFERED_EVENT_IDS: set[str] = set()
 
 
 def setup_tracing() -> None:
@@ -65,7 +72,8 @@ def get_producer() -> KafkaProducer | None:
             compression_type="lz4",
             max_in_flight_requests_per_connection=5,
         )
-    except KafkaError:
+    except KafkaError as exc:
+        logger.warning("Kafka producer initialization failed: %s", exc)
         PRODUCER = None
     return PRODUCER
 
@@ -88,14 +96,86 @@ def ensure_topics() -> None:
         if to_create:
             admin.create_topics(new_topics=to_create, validate_only=False)
         admin.close()
-    except Exception:
-        # Topic bootstrap is best-effort in local dev.
-        pass
+    except Exception as exc:
+        # Topic bootstrap is best-effort in local dev, but failures should be visible.
+        logger.warning("Topic bootstrap failed: %s", exc)
+
+
+def prune_idempotency_keys(now_epoch: float) -> None:
+    stale_ids = [key for key, ts in SEEN_EVENT_IDS.items() if now_epoch - ts > IDEMPOTENCY_WINDOW_SECONDS]
+    for key in stale_ids:
+        SEEN_EVENT_IDS.pop(key, None)
+
+
+def publish_event(event: dict[str, Any]) -> None:
+    producer = get_producer()
+    if producer is None:
+        raise RuntimeError("kafka producer unavailable")
+    producer.send(KAFKA_EVENTS_TOPIC, event)
+    producer.flush(timeout=1)
+
+
+def buffer_event(event: dict[str, Any], event_id: str) -> bool:
+    with BUFFER_LOCK:
+        if event_id in BUFFERED_EVENT_IDS:
+            return True
+        if len(INGESTION_BUFFER) >= INGESTION_BUFFER_MAX_SIZE:
+            raise RuntimeError("local ingestion buffer is full")
+        INGESTION_BUFFER.append(event)
+        BUFFERED_EVENT_IDS.add(event_id)
+    return False
+
+
+def flush_buffer_once() -> int:
+    flushed = 0
+    while True:
+        with BUFFER_LOCK:
+            if not INGESTION_BUFFER:
+                break
+            event = INGESTION_BUFFER[0]
+        event_id = str(event.get("event_id", ""))
+
+        # If this id was successfully published via a retrying client request, discard stale buffered copy.
+        if event_id:
+            with SEEN_EVENT_IDS_LOCK:
+                prune_idempotency_keys(datetime.now(timezone.utc).timestamp())
+                if event_id in SEEN_EVENT_IDS:
+                    with BUFFER_LOCK:
+                        INGESTION_BUFFER.pop(0)
+                        BUFFERED_EVENT_IDS.discard(event_id)
+                    continue
+
+        try:
+            publish_event(event)
+        except (KafkaError, RuntimeError, OSError, TimeoutError) as exc:
+            logger.warning("Buffered event flush paused due to publish failure: %s", exc)
+            break
+
+        with BUFFER_LOCK:
+            INGESTION_BUFFER.pop(0)
+            BUFFERED_EVENT_IDS.discard(event_id)
+        if event_id:
+            with SEEN_EVENT_IDS_LOCK:
+                SEEN_EVENT_IDS[event_id] = datetime.now(timezone.utc).timestamp()
+        flushed += 1
+    return flushed
+
+
+def buffer_retry_loop() -> None:
+    while True:
+        time.sleep(BUFFER_RETRY_INTERVAL_SECONDS)
+        try:
+            flushed = flush_buffer_once()
+            if flushed:
+                logger.info("Flushed %s buffered ingestion events to Kafka", flushed)
+        except Exception as exc:
+            logger.warning("Buffer flush loop failed: %s", exc)
 
 
 @app.on_event("startup")
 def startup() -> None:
     ensure_topics()
+    threading.Thread(target=buffer_retry_loop, daemon=True).start()
 
 
 class EventIngest(BaseModel):
@@ -136,39 +216,37 @@ def healthz() -> dict[str, str]:
 
 @app.post("/events")
 def ingest_event(payload: EventIngest, x_tenant_id: str | None = Header(default=None)) -> dict[str, str]:
-    tenant_id = payload.tenant_id or x_tenant_id
-    if not tenant_id:
-        raise HTTPException(status_code=400, detail="tenant_id required")
+    if not x_tenant_id:
+        raise HTTPException(status_code=400, detail="tenant header required")
+    if payload.tenant_id and payload.tenant_id != x_tenant_id:
+        raise HTTPException(status_code=403, detail="tenant mismatch")
+    tenant_id = x_tenant_id
     validate_event(payload)
     event = payload.model_dump()
     event["tenant_id"] = tenant_id
     now_epoch = datetime.now(timezone.utc).timestamp()
     event_id = event["event_id"]
     with SEEN_EVENT_IDS_LOCK:
-        stale_ids = [
-            key for key, ts in SEEN_EVENT_IDS.items() if now_epoch - ts > IDEMPOTENCY_WINDOW_SECONDS
-        ]
-        for key in stale_ids:
-            SEEN_EVENT_IDS.pop(key, None)
-
+        prune_idempotency_keys(now_epoch)
         if event_id in SEEN_EVENT_IDS:
             return {"result": "duplicate_ignored", "event_id": event_id}
-        SEEN_EVENT_IDS[event_id] = now_epoch
 
     event["received_at"] = datetime.now(timezone.utc).isoformat()
     event["enriched"] = {
         "ingestion_service_version": "0.4.0",
         "ingested_epoch": int(now_epoch),
     }
-    producer = get_producer()
     try:
-        if producer is None:
-            raise RuntimeError("kafka producer unavailable")
-        producer.send(KAFKA_EVENTS_TOPIC, event)
-        producer.flush(timeout=1)
-    except Exception:
-        # Keep a local fallback buffer if broker is temporarily unavailable.
-        INGESTION_BUFFER.append(event)
+        publish_event(event)
+        with SEEN_EVENT_IDS_LOCK:
+            SEEN_EVENT_IDS[event_id] = datetime.now(timezone.utc).timestamp()
+        with BUFFER_LOCK:
+            BUFFERED_EVENT_IDS.discard(event_id)
+    except (KafkaError, RuntimeError, OSError, TimeoutError) as exc:
+        already_buffered = buffer_event(event, event_id)
+        if already_buffered:
+            raise HTTPException(status_code=503, detail="event buffered locally; broker unavailable") from exc
+        raise HTTPException(status_code=503, detail="event not persisted to broker; buffered locally") from exc
     return {"result": "accepted", "tenant_id": tenant_id, "event_id": event_id}
 
 

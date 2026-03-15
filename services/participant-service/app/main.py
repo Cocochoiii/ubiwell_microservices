@@ -118,9 +118,11 @@ def healthz() -> dict[str, str]:
 
 @app.post("/participants")
 def create_participant(payload: ParticipantCreate, x_tenant_id: str | None = Header(default=None)) -> dict[str, str]:
-    tenant_id = payload.tenant_id or x_tenant_id
-    if not tenant_id:
-        raise HTTPException(status_code=400, detail="tenant_id required")
+    if not x_tenant_id:
+        raise HTTPException(status_code=400, detail="tenant header required")
+    if payload.tenant_id and payload.tenant_id != x_tenant_id:
+        raise HTTPException(status_code=403, detail="tenant mismatch")
+    tenant_id = x_tenant_id
     query = """
     INSERT INTO participants (tenant_id, participant_id, study_id, status)
     VALUES (%s, %s, %s, %s)

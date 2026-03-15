@@ -82,9 +82,11 @@ def healthz() -> dict[str, str]:
 
 @app.post("/responses")
 def create_response(payload: SurveyResponseCreate, x_tenant_id: str | None = Header(default=None)) -> dict[str, str]:
-    tenant_id = payload.tenant_id or x_tenant_id
-    if not tenant_id:
-        raise HTTPException(status_code=400, detail="tenant_id required")
+    if not x_tenant_id:
+        raise HTTPException(status_code=400, detail="tenant header required")
+    if payload.tenant_id and payload.tenant_id != x_tenant_id:
+        raise HTTPException(status_code=403, detail="tenant mismatch")
+    tenant_id = x_tenant_id
     doc = {
         "tenant_id": tenant_id,
         "study_id": payload.study_id,

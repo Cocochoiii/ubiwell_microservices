@@ -8,6 +8,7 @@ from typing import Any, TYPE_CHECKING
 import httpx
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException
+from kafka.errors import KafkaError
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -17,6 +18,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
 from pymongo import MongoClient
+from selenium.common.exceptions import WebDriverException
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -116,7 +118,7 @@ def publish_records(job_id: str, records: list[dict[str, Any]]) -> dict[str, Any
             published += 1
             if published % 5000 == 0:
                 producer.flush(timeout=5)
-        except Exception:
+        except (KafkaError, RuntimeError):
             failed += 1
             producer.send(
                 KAFKA_PIPELINE_DLQ_TOPIC,
@@ -224,7 +226,7 @@ def collect_web(payload: WebCollectRequest) -> dict[str, Any]:
             response.raise_for_status()
             points = parse_web_with_bs4(response.text, payload.css_selector, payload.max_points)
             parser = "beautifulsoup"
-    except Exception as exc:
+    except (httpx.HTTPError, WebDriverException, RuntimeError, ValueError) as exc:
         checkpoint(
             job_id,
             {
